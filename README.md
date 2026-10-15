@@ -42,6 +42,7 @@ java -cp target/calculator-1.0.jar com.zhangyixin.App 2 + 2
 Every push to `main` and every pull request targeting `main` automatically runs
 the GitHub Actions workflow defined in
 [`.github/workflows/ci-calculator.yml`](.github/workflows/ci-calculator.yml).
-The workflow sets up JDK 21, caches the Maven dependencies, resolves the
-declared dependencies, compiles all Java sources and runs all 7 JUnit 5 test
-cases. The badge at the top of this file shows the status of the latest run.
+The workflow builds and tests the project in parallel on JDK 17 and JDK 21
+(a build matrix), caches the Maven dependencies, resolves the declared
+dependencies, compiles all Java sources and runs all 7 JUnit 5 test cases.
+The badge at the top of this file shows the status of the latest run.
