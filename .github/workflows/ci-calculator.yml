@@ -14,20 +14,32 @@ on:
 
 jobs:
   build:
-    # GitHub-hosted Ubuntu runner for this job
+    # GitHub-hosted Ubuntu runner for each matrix combination
     runs-on: ubuntu-latest
+
+    # ---- Build matrix (Lab 5 bonus task) ----
+    # Build and test the project in parallel on two JDK versions.
+    # "fail-fast: false" keeps the other leg running if one leg fails, so the
+    # log always shows the complete result of both JDK versions.
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '17', '21' ]
+
+    # Give each matrix leg a readable name in the Actions UI
+    name: JDK ${{ matrix.java }}
 
     steps:
       # Step 1 - download the repository contents onto the runner
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Step 2 - install JDK 21 (same version used for local development)
-      - name: Set up JDK 21
+      # Step 2 - install the JDK version selected by the current matrix leg
+      - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ matrix.java }}
 
       # Step 3 - restore the local Maven repository (~/.m2) so that
       # repeated builds do not download the same dependencies again
@@ -43,10 +55,13 @@ jobs:
       - name: Resolve Maven dependencies
         run: mvn --batch-mode dependency:resolve
 
-      # Step 5 - compile every Java source file under src/main/java
+      # Step 5 - compile every Java source file under src/main/java.
+      # pom.xml targets Java 21, so the target release is overridden with the
+      # JDK version of the current matrix leg; otherwise the JDK 17 leg would
+      # fail with "release version 21 not supported".
       - name: Compile Java sources
-        run: mvn --batch-mode clean compile
+        run: mvn --batch-mode clean compile -Dmaven.compiler.release=${{ matrix.java }}
 
       # Step 6 - execute all JUnit 5 test cases under src/test/java
       - name: Run JUnit 5 tests
-        run: mvn --batch-mode test
+        run: mvn --batch-mode test -Dmaven.compiler.release=${{ matrix.java }}
