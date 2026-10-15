@@ -1,0 +1,52 @@
+# .github/workflows/ci-calculator.yml
+# Continuous Integration pipeline for the Maven Calculator project (Lab 5)
+
+name: Calculator CI
+
+# ---------- Trigger rules ----------
+# Run this workflow on every push to "main" and on every pull request
+# that targets "main".
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    # GitHub-hosted Ubuntu runner for this job
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1 - download the repository contents onto the runner
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Step 2 - install JDK 21 (same version used for local development)
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # Step 3 - restore the local Maven repository (~/.m2) so that
+      # repeated builds do not download the same dependencies again
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      # Step 4 - download and verify all dependencies declared in pom.xml
+      - name: Resolve Maven dependencies
+        run: mvn --batch-mode dependency:resolve
+
+      # Step 5 - compile every Java source file under src/main/java
+      - name: Compile Java sources
+        run: mvn --batch-mode clean compile
+
+      # Step 6 - execute all JUnit 5 test cases under src/test/java
+      - name: Run JUnit 5 tests
+        run: mvn --batch-mode test
