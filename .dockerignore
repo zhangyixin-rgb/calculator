@@ -1,0 +1,15 @@
+# Exclude build output and IDE files from the Docker build context
+# to keep the image build fast and the context small.
+target/
+.idea/
+*.iml
+.classpath
+.project
+.git/
+.gitignore
+*.md
+mvnw
+mvnw.cmd
+.mvn/
+*.log
+.DS_Store

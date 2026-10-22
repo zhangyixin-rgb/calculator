@@ -1,5 +1,8 @@
 # .github/workflows/ci-calculator.yml
-# Continuous Integration pipeline for the Maven Calculator project (Lab 5)
+# Continuous Integration pipeline for the Maven Calculator project
+# Lab 5: compile + unit tests on a JDK 17/21 matrix
+# Lab 6: after tests pass, build the Docker image; on a push/merge to
+#        main, also log in to Docker Hub and push the image.
 
 name: Calculator CI
 
@@ -17,7 +20,7 @@ jobs:
     # GitHub-hosted Ubuntu runner for each matrix combination
     runs-on: ubuntu-latest
 
-    # ---- Build matrix (Lab 5 bonus task) ----
+    # ---- Lab 5 build matrix (kept unchanged) ----
     # Build and test the project in parallel on two JDK versions.
     # "fail-fast: false" keeps the other leg running if one leg fails, so the
     # log always shows the complete result of both JDK versions.
@@ -65,3 +68,39 @@ jobs:
       # Step 6 - execute all JUnit 5 test cases under src/test/java
       - name: Run JUnit 5 tests
         run: mvn --batch-mode test -Dmaven.compiler.release=${{ matrix.java }}
+
+  # ---- Lab 6 new job: build the Docker image after tests pass ----
+  docker-build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # Step 1 - download the repository contents onto the runner
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Step 2 - enable Docker Buildx so that the multi-stage Dockerfile
+      # is built with the modern BuildKit engine.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 3 - optional advanced requirement: log in to Docker Hub only
+      # when code is pushed / merged to main (never on pull requests).
+      # The credentials are read from repository Secrets
+      # (DOCKERHUB_USERNAME / DOCKERHUB_TOKEN).
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+      # Step 4 - build the multi-stage image; push it to Docker Hub only
+      # when the code lands on main (pull requests only build, no push).
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calculator:lab6
