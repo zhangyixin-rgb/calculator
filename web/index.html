@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab 7 计算器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="card">
+    <header class="card__header">
+      <div>
+        <h1>计算器</h1>
+        <p class="subtitle">Lab 7 · 多容器应用</p>
+      </div>
+      <span id="status" class="status status--waiting">检测后端中…</span>
+    </header>
+
+    <section class="display">
+      <div id="expr" class="expr">&nbsp;</div>
+      <div id="result" class="result">0</div>
+    </section>
+
+    <section class="operands">
+      <input id="a" type="text" inputmode="decimal" value="6" aria-label="第一个操作数">
+      <div class="ops" role="group" aria-label="运算符">
+        <button type="button" class="op" data-op="+">+</button>
+        <button type="button" class="op" data-op="-">−</button>
+        <button type="button" class="op active" data-op="*">×</button>
+        <button type="button" class="op" data-op="/">÷</button>
+      </div>
+      <input id="b" type="text" inputmode="decimal" value="7" aria-label="第二个操作数">
+    </section>
+
+    <button id="equals" type="button" class="equals">=</button>
+
+    <footer class="hint">
+      请求经 nginx 转发到 <code>http://backend:8000</code>
+    </footer>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

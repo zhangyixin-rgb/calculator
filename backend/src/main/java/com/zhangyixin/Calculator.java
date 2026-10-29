@@ -1,5 +1,8 @@
 package com.zhangyixin;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -15,29 +18,35 @@ public class Calculator {
      * @param b  the second operand, must not be blank
      * @return the numeric result
      * @throws IllegalArgumentException if an operand is blank or the operator is unknown
-     * @throws ArithmeticException      if a division by zero is requested
+     * @throws ArithmeticException      if a division by zero is requested, or the result overflows
      */
     public double eval(String a, String op, String b) {
         if (StringUtils.isBlank(a) || StringUtils.isBlank(b) || StringUtils.isBlank(op)) {
             throw new IllegalArgumentException("input is blank");
         }
 
-        double x = Double.parseDouble(a);
-        double y = Double.parseDouble(b);
+        BigDecimal x = new BigDecimal(a.trim());
+        BigDecimal y = new BigDecimal(b.trim());
 
-        return switch (op) {
-            case "+" -> x + y;
-            case "-" -> x - y;
-            case "*" -> x * y;
+        BigDecimal result = switch (op) {
+            case "+" -> x.add(y);
+            case "-" -> x.subtract(y);
+            case "*" -> x.multiply(y);
             case "/" -> divide(x, y);
             default -> throw new IllegalArgumentException("unknown operator: " + op);
         };
+
+        double value = result.doubleValue();
+        if (Double.isInfinite(value)) {
+            throw new ArithmeticException("overflow: result exceeds double range");
+        }
+        return value == 0.0 ? 0.0 : value;
     }
 
-    private double divide(double x, double y) {
-        if (y == 0.0) {
+    private BigDecimal divide(BigDecimal x, BigDecimal y) {
+        if (y.signum() == 0) {
             throw new ArithmeticException("division by zero");
         }
-        return x / y;
+        return x.divide(y, MathContext.DECIMAL64);
     }
 }

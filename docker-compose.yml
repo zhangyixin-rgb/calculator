@@ -1,0 +1,61 @@
+# =====================================================================
+# docker-compose.yml —— 计算器多容器编排（Lab 7）
+#
+# 两个服务：
+#   backend : Spring 无关的轻量 Java HTTP 计算服务，监听 8000
+#   web     : nginx 静态页面 + /api 反向代理，监听 80（宿主机 8080）
+#
+# 容器之间通过 compose 默认网络的“服务名”互相访问：
+# web 容器内的 nginx 使用 http://backend:8000 调用后端。
+# =====================================================================
+name: calculator-lab7
+
+services:
+  # ---------------- 后端计算服务 ----------------
+  backend:
+    # 使用 backend/ 目录下自己的 Dockerfile 本地构建，不直接拉取镜像
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: calculator-backend:lab7
+    container_name: calculator-backend
+
+    # 宿主机 8000 -> 容器 8000，方便直接用 curl 验证 API
+    ports:
+      - "8000:8000"
+
+    # 可选练习：通过 environment 注入日志级别，默认 INFO
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+    # 只有异常退出时才重启（正常 docker compose stop 不会重启）
+    restart: on-failure
+
+    # 健康检查：容器内 8000 端口可连通才算“就绪”。
+    # depends_on 只保证容器“已启动”，不等业务就绪，所以这里用
+    # service_healthy 让 web 等服务真正可用之后再启动。
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/127.0.0.1/8000"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 15s
+
+  # ---------------- 前端页面服务 ----------------
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    image: calculator-web:lab7
+    container_name: calculator-web
+
+    # 宿主机 8080 -> 容器 80（任务要求的映射）
+    ports:
+      - "8080:80"
+
+    restart: on-failure
+
+    # web 依赖 backend：等 backend 健康检查通过后再启动
+    depends_on:
+      backend:
+        condition: service_healthy

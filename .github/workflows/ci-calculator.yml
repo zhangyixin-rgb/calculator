@@ -3,12 +3,14 @@
 # Lab 5: compile + unit tests on a JDK 17/21 matrix
 # Lab 6: after tests pass, build the Docker image; on a push/merge to
 #        main, also log in to Docker Hub and push the image.
+# Lab 7: after tests pass, validate docker-compose.yml and build both
+#        service images with "docker compose build" (no long-running up).
 
 name: Calculator CI
 
 # ---------- Trigger rules ----------
 # Run this workflow on every push to "main" and on every pull request
-# that targets "main".
+# that targets "main", so a broken compose file is caught before merge.
 on:
   push:
     branches: [ main ]
@@ -54,22 +56,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Step 4 - download and verify all dependencies declared in pom.xml
+      # Step 4 - download and verify all dependencies declared in pom.xml.
+      # Lab 7: the Maven project now lives in backend/, so every Maven
+      # command runs with that directory as working directory.
       - name: Resolve Maven dependencies
+        working-directory: backend
         run: mvn --batch-mode dependency:resolve
 
       # Step 5 - compile every Java source file under src/main/java.
-      # pom.xml targets Java 21, so the target release is overridden with the
-      # JDK version of the current matrix leg; otherwise the JDK 17 leg would
-      # fail with "release version 21 not supported".
+      # backend/pom.xml targets Java 21, so the target release is overridden with
+      # the JDK version of the current matrix leg; otherwise the JDK 17 leg
+      # would fail with "release version 21 not supported".
       - name: Compile Java sources
+        working-directory: backend
         run: mvn --batch-mode clean compile -Dmaven.compiler.release=${{ matrix.java }}
 
       # Step 6 - execute all JUnit 5 test cases under src/test/java
       - name: Run JUnit 5 tests
+        working-directory: backend
         run: mvn --batch-mode test -Dmaven.compiler.release=${{ matrix.java }}
 
-  # ---- Lab 6 new job: build the Docker image after tests pass ----
+  # ---- Lab 6 job: build the backend Docker image after tests pass ----
   docker-build:
     name: Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -95,12 +102,44 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
-      # Step 4 - build the multi-stage image; push it to Docker Hub only
-      # when the code lands on main (pull requests only build, no push).
+      # Step 4 - build the multi-stage backend image; push it to Docker Hub
+      # only when the code lands on main (pull requests only build, no push).
+      # Lab 7: the Dockerfile moved into backend/, so the build context
+      # changed from "."
+      # to "./backend".
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calculator:lab6
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/calculator:lab7-backend
+
+  # ---- Lab 7 new job: validate the compose file and build both images ----
+  # The CI environment does not need a long-running "docker compose up":
+  # "docker compose config" catches YAML / schema errors and
+  # "docker compose build" proves that both Dockerfiles build correctly,
+  # so an invalid compose file can never reach main unnoticed.
+  compose-validate:
+    name: Validate Docker Compose
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      # Step 1 - check out the complete repository (compose references
+      # both ./backend and ./web build contexts)
+      - name: Checkout full repository
+        uses: actions/checkout@v4
+
+      # Step 2 - print the Compose version used by the runner
+      - name: Show Docker Compose version
+        run: docker compose version
+
+      # Step 3 - parse and validate docker-compose.yml (fails on syntax,
+      # indentation or schema errors)
+      - name: Validate compose file
+        run: docker compose config -q
+
+      # Step 4 - build the backend and web images defined in the compose
+      # file; no containers are started in CI
+      - name: Build service images
+        run: docker compose build
