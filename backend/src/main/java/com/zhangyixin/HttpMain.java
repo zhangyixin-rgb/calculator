@@ -41,8 +41,8 @@ public class HttpMain {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/api/health", HttpMain::handleHealth);
         server.createContext("/api/calc", HttpMain::handleCalc);
-        // Java 21 虚拟线程：每个请求一个线程，写法简单、并发开销小
-        server.setExecutor(Executors.newVirtualThreadPerTaskExecutor());
+        // 使用可伸缩的线程池处理请求，保证在 JDK 17 与 JDK 21 上都能编译运行
+        server.setExecutor(Executors.newCachedThreadPool());
         server.start();
         log("INFO", "calculator backend started on port " + PORT + " (LOG_LEVEL=" + LOG_LEVEL + ")");
     }

@@ -45,7 +45,7 @@ calculator/
 
 ## Build and test locally
 
-> Requires JDK 21 (the project targets Java 21) and Maven 3.9+.
+> Requires JDK 17+ (the project targets Java 17, the runtime image uses JDK 21) and Maven 3.9+.
 
 ```bash
 cd backend
